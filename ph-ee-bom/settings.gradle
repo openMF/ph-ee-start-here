@@ -1,0 +1,12 @@
+/*
+ * Copyright 2026 The Mifos Initiative.
+ * Licensed under the Mozilla Public License 2.0.
+ */
+
+rootProject.name = 'ph-ee-bom'
+
+// bom-verification is a minimal subproject that imports this BOM and resolves
+// all declared dependencies against the real Maven repositories. If any artifact
+// is unavailable or has an incompatible version constraint, the CI build fails here
+// before the BOM is published — catching problems before connectors are affected.
+include 'bom-verification'

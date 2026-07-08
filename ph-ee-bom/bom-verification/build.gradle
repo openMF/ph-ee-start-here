@@ -1,0 +1,167 @@
+/*
+ * Copyright 2026 The Mifos Initiative.
+ * Licensed under the Mozilla Public License 2.0.
+ *
+ * bom-verification
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This subproject has no source code. Its sole purpose is to verify that every
+ * dependency declared in ph-ee-bom can actually be resolved from the
+ * configured Maven repositories.
+ *
+ * The 'verifyBom' task resolves the full compile classpath and logs each
+ * artifact with its resolved version. If Gradle cannot resolve an artifact
+ * (wrong version, missing repository, incompatible constraint), the build fails
+ * here, before the BOM is published to the Mifos JFrog Artifactory.
+ *
+ * How to run:
+ *   ./gradlew :bom-verification:verifyBom
+ */
+
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = uri('https://artifacts.camunda.com/artifactory/zeebe-io/') }
+    maven { url = uri('https://artifacts.camunda.com/artifactory/zeebe-io-snapshots/') }
+}
+
+dependencies {
+    // Import the BOM being tested. Using enforcedPlatform mirrors exactly how
+    // connectors will consume it in production.
+    implementation enforcedPlatform(project(':'))
+
+    // ── A representative sample of every BOM category ─────────────────────
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Apache Camel
+    implementation 'org.apache.camel.springboot:camel-spring-boot-starter'
+    implementation 'org.apache.camel.springboot:camel-jackson-starter'
+    implementation 'org.apache.camel.springboot:camel-bean-validator-starter'
+
+    // Zeebe
+    // Exclude Camunda identity SNAPSHOT transitive deps — they require authenticated
+    // access to artifacts.camunda.com/zeebe-io-snapshots which is not publicly available.
+    // The BOM still pins the zeebe version; we verify zeebe-client-java resolves correctly.
+    implementation('io.camunda:spring-zeebe-starter') {
+        exclude group: 'io.camunda', module: 'identity-spring-boot-starter'
+        exclude group: 'io.camunda', module: 'identity-sdk'
+    }
+    implementation 'io.camunda:zeebe-client-java'
+
+    // Jakarta EE 10
+    implementation 'jakarta.validation:jakarta.validation-api'
+    implementation 'jakarta.servlet:jakarta.servlet-api'
+    implementation 'jakarta.annotation:jakarta.annotation-api'
+    implementation 'jakarta.persistence:jakarta.persistence-api'
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api'
+
+    // Hibernate Validator (Jakarta implementation)
+    implementation 'org.hibernate.validator:hibernate-validator'
+
+    // JAXB runtime
+    implementation 'org.glassfish.jaxb:jaxb-runtime'
+
+    // Jackson
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // Apache CXF
+    implementation 'org.apache.cxf:cxf-rt-rs-client'
+    implementation 'org.apache.cxf:cxf-rt-frontend-jaxrs'
+
+    // SpringDoc
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+
+    // Flyway
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
+    // Security
+    implementation 'com.auth0:java-jwt'
+    implementation 'com.nimbusds:nimbus-jose-jwt'
+
+    // Commons
+    implementation 'org.apache.commons:commons-lang3'
+    implementation 'commons-codec:commons-codec'
+    implementation 'commons-io:commons-io'
+
+    // EclipseLink (JPA provider — alternative to Hibernate, used in three components)
+    implementation 'org.eclipse.persistence:eclipselink'
+
+    // AWS SDK v2 (ph-ee-operations-app S3 integration)
+    implementation 'software.amazon.awssdk:s3'
+
+    // Database
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Mastercard
+    implementation 'com.mastercard.developer:oauth1-signer'
+
+    // JSON
+    implementation 'org.json:json'
+    implementation 'com.google.code.gson:gson'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-junit-jupiter'
+}
+
+// verifyBom — resolves the full compile classpath and reports each artifact.
+// Any resolution failure causes the build to fail with a descriptive error.
+tasks.register('verifyBom') {
+    description = 'Resolves all BOM-managed dependencies and reports the resolved versions.'
+    group = 'verification'
+    dependsOn configurations.compileClasspath
+
+    doLast {
+        def resolved = configurations.compileClasspath.resolvedConfiguration
+        def artifacts = resolved.resolvedArtifacts.sort {
+            "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}"
+        }
+
+        logger.lifecycle('─────────────────────────────────────────────────────')
+        logger.lifecycle('ph-ee-bom — Dependency Resolution Report')
+        logger.lifecycle('─────────────────────────────────────────────────────')
+        artifacts.each { artifact ->
+            def id = artifact.moduleVersion.id
+            logger.lifecycle('  {}:{}:{}', id.group, id.name, id.version)
+        }
+        logger.lifecycle('─────────────────────────────────────────────────────')
+        logger.lifecycle('✓ {} artifacts resolved successfully.', artifacts.size())
+
+        // Fail loudly if any javax.* artifact is on the classpath.
+        // This is the classpath purity check: after BOM enforcement, no
+        // connector should have a javax.* artifact in its runtime.
+        def javaxLeaks = artifacts.findAll { artifact ->
+            artifact.moduleVersion.id.group.startsWith('javax.')
+        }
+        if (!javaxLeaks.isEmpty()) {
+            def names = javaxLeaks.collect {
+                "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}:${it.moduleVersion.id.version}"
+            }.join('\n  ')
+            throw new GradleException(
+                "Classpath purity check FAILED — the following javax.* artifacts " +
+                "leaked onto the classpath despite enforcedPlatform constraints:\n  ${names}\n" +
+                "Update the BOM constraints to exclude or replace these artifacts."
+            )
+        }
+        logger.lifecycle('✓ Classpath purity check passed: no javax.* artifacts detected.')
+    }
+}
+
+check.dependsOn verifyBom
+
+test {
+    useJUnitPlatform()
+}

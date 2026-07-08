@@ -1,0 +1,11 @@
+# Normalize line endings to LF on checkout (consistent across Windows/macOS/Linux)
+* text=auto eol=lf
+
+# Gradle wrapper — binary, must not be modified by Git's line-ending normalization
+gradle/wrapper/gradle-wrapper.jar binary
+
+# Shell scripts — LF only (Windows machines must not convert these to CRLF)
+gradlew text eol=lf
+
+# Windows batch file — CRLF (Windows convention)
+gradlew.bat text eol=crlf
