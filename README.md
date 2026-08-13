@@ -94,3 +94,14 @@ The solution is a multi repo approach supporting modularity.
 
 > For detailed documentation check the documentation: [PH EE Gitbook](https://app.gitbook.com/@mifos/s/docs/payment-hub-ee/overview)
 
+---
+
+For more developer specifics regarding our Payment Hub EE developer please also refer to:
+- [Community Code of Conduct](CODE_OF_CONDUCT.md)
+- [PH EE Contributing Guidelines](contributing.md)
+- [Security Disclosure Policy](security.md)
+- [Contributor Licence Agreement](https://mifos.org/about-us/financial-legal/mifos-contributor-agreement/)
+
+More information about Mifos and our Mission can be found at [mifos.org](https://mifos.org)
+
+Thank you for your interest in Payment Hub EE
