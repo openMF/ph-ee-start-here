@@ -90,5 +90,7 @@ The solution is a multi repo approach supporting modularity.
 [ph-ee-env-template](https://github.com/openMF/ph-ee-env-template) – Template environment/deployment configs.  
 [ph-ee-env-labs](https://github.com/openMF/ph-ee-env-labs) – Actual lab environment configs — BPMN flows and Helm charts for a live lab deployment.  
 
-For detailed documentation check the documentation: https://app.gitbook.com/@mifos/s/docs/payment-hub-ee/overview
+---
+
+> For detailed documentation check the documentation: [PH EE Gitbook](https://app.gitbook.com/@mifos/s/docs/payment-hub-ee/overview)
 
